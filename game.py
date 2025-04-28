@@ -1,14 +1,15 @@
-from typing import List, NamedTuple, NoReturn, Self, Tuple
-# from util import *
+from typing import List, Literal, NamedTuple, NoReturn, Self, Tuple, overload, override
 import time
 import os
 import traceback
 import sys
-# class Point(NamedTuple):
-#     x: int
-#     y: int
+import util
+from util import nearestPoint
 
-Point = Tuple[int, int]
+
+# Agent speed can be floating point number so dx, dy is also floating point number
+AgentPoint = Tuple[float, float]
+GridPoint = Tuple[int, int]
 
 class Agent:
     def __init__(self, index = 0):
@@ -22,12 +23,25 @@ class Directions:
     WEST = 'West'
     STOP = 'Stop'
 
-    LEFT = {NORTH: WEST,
-            SOUTH: NORTH,
-            EAST : WEST,
-            WEST: EAST,
-            STOP: STOP
-            }
+    LEFT = {
+        NORTH: WEST,
+        SOUTH: EAST,
+        EAST : NORTH,
+        WEST: SOUTH,
+        STOP: STOP
+    }
+
+
+    RIGHT = dict([(y, x) for x , y in list(LEFT.items())])
+
+    REVERSE = {
+        NORTH: SOUTH,
+        SOUTH: NORTH,
+        EAST : WEST,
+        WEST: EAST,
+        STOP: STOP
+    }
+
 
 class Configuration:
     """
@@ -36,7 +50,7 @@ class Configuration:
     """
 
     def __init__ (self, pos, direction):
-        self.pos:Point =  pos
+        self.pos:AgentPoint =  pos
         self.direction:Directions = direction
 
     def getPosition(self):
@@ -77,6 +91,7 @@ class Configuration:
 class Actions:
     """
     Collection of static method to manipulate move action
+    Agent for pacman agent is direction
     """
 
 
@@ -103,7 +118,7 @@ class Actions:
 
 
     @staticmethod
-    def vectorToDirection(vector: Point):
+    def vectorToDirection(vector: AgentPoint):
         dx, dy = vector
         if dy > 0:
             return Directions.NORTH
@@ -118,21 +133,55 @@ class Actions:
     @staticmethod
     # TODO: strict type for walls
     def getPossibleActions(config: Configuration, walls):
+        """
+        Return a list of possible action (direction) for agent to move
+        """
         possible = []
         x, y = config.pos
-        # TODO: explain why
-        x_int, y_int = int(x + 0.5), int(y + 0.5)
+        # Get position of nearest position between 2 grid
+        x_grid_nearest, y_grid_nearest = int(x + 0.5), int(y + 0.5)
 
-        # In between grid points, all agents must continue straight
-        if (abs(x - x_int) + abs(y - y_int)) > Actions.TOLERANCE:
+        """
+        For smooth transition we use float to store agent configuration as float instead of int
+        Only allow agent to change direction when the absoluate distance less than tolerance
+        Otherwise must keep same agent direction
+        """
+        if (abs(x - x_grid_nearest) + abs(y - y_grid_nearest)) > Actions.TOLERANCE:
             return [config.getDirection()]
-        for dir, vec in Actions._directionsAsList:
-            dx, dy = vec
-            next_y = y_int + dy
-            next_x = x_int + dx
+        for direction, vector in Actions._directionsAsList:
+            dx, dy = vector
+            next_y = y_grid_nearest + dy
+            next_x = x_grid_nearest + dx
             if not walls[next_x][next_y]:
-                possible.append(dir)
+                possible.append(direction)
         return possible
+    @staticmethod
+    def getLegalNeighbors(position: AgentPoint, walls):
+        """
+        Return a list of neighbors point that not out of bound
+        """
+        x, y = position
+        x_grid_nearest, y_grid_nearest = int(x + 0.5), int(y + 0.5)
+        neighbors = []
+        for direction, vector in Actions._directionsAsList:
+            dx, dy = vector
+            next_x = x_grid_nearest + dx
+            next_y = y_grid_nearest + dy
+            if next_x < 0 or next_x == walls.width:
+                continue
+            if next_y < 0 or next_y == walls.width:
+                continue
+
+            valid_neighbor = not walls[next_x][next_y]
+            if valid_neighbor:
+                neighbors.append((next_x, next_y))
+        return neighbors
+
+    @staticmethod
+    def getSuccessor(position, action):
+        dx, dy = Actions.directionToVector(action)
+        x, y = position
+        return (x + dx, y + dy)
 
 
 
@@ -149,6 +198,9 @@ class Actions:
 
 
 
+
+
+
 class AgentState:
     """
     Store agent details about configuration, speed, scared status, etc
@@ -156,7 +208,7 @@ class AgentState:
     def __init__(self, startConfiguration, isPacman):
         self.start: Configuration | None = startConfiguration
         self.configuration: Configuration | None = startConfiguration
-        self.isPacman = isPacman
+        self.isPacman: bool = isPacman
         self.scaredTimer = 0
         # Use for contest only
         self.numCarrying = 0
@@ -185,10 +237,13 @@ class AgentState:
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state
-    def getPosition(self) -> None | Point:
+    def getPosition(self) -> None | AgentPoint:
         if self.configuration == None:
             return None
         return self.configuration.getPosition()
+    def getDirection(self):
+        if self.configuration:
+            return self.configuration.getDirection()
 
 class Grid:
     """
@@ -203,7 +258,9 @@ class Grid:
         self.CELLS_PER_INT = 30
         self.width = width
         self.height = height
-        self.data = [
+
+        # Reuse Grid to display agent str => use union of int | str
+        self.data: List[List[int | str]] = [
             [initialValue for y in range(height)]
             for x in range(width)
         ]
@@ -249,7 +306,10 @@ class Grid:
         return sum([x.count(item) for x in self.data])
 
     def asList(self, key = True):
-        l: List[Point] = []
+        """
+        Return list agent point in order of 2d iteration
+        """
+        l: List[AgentPoint] = []
         for x in range(self.width):
             for y in range(self.height):
                 if self[x][y] == key:
@@ -274,7 +334,7 @@ class Grid:
                 currentInt = 0
             bits.append(currentInt)
         return tuple(bits)
-    def _cellIndexToPosition(self, index) -> Point:
+    def _cellIndexToPosition(self, index) -> GridPoint:
         x = index / self.height
         y = index % self.height
         return x, y
@@ -304,3 +364,254 @@ class Grid:
             else:
                 bools.append(False)
         return bools
+
+
+class GameStateData:
+    def __init__(self, prevState: Self | None) -> None:
+        """
+        Generate new data packet by copying information from its predecessor.
+        """
+        if prevState != None:
+            self.food= prevState.food
+            self.capsules: List= prevState.capsules[:]
+            self.agentStates: List[AgentState] = self.copyAgentStates(prevState.agentStates)
+            self.layout = prevState.layout
+            self._eaten: List[bool] = prevState._eaten
+            self.score: int = prevState.score
+
+
+        self._foodEaten = None
+        self._foodAdded = None
+        self._capsulesEaten = None
+        self._agentMoved = None
+        self._wind = False
+        self._lose = False
+        self.scoreChange = 0
+
+    def deepCopy(self):
+        state = GameStateData(self)
+        state.food = self.food.deepCopy()
+        state.layout = self.layout.deepCopy()
+        state._agentMoved = self._agentMoved
+        state._foodEaten = self._foodEaten
+        state._foodAdded = self._foodAdded
+        state._capsulesEaten = self._capsulesEaten
+        return state
+
+    def copyAgentStates(self, agentStates: List[AgentState]):
+        copiedStates: List[AgentState] = []
+        for agentState in agentStates:
+            copiedStates.append(agentState.copy())
+        return copiedStates
+
+    # TODO: fill layout class name
+    def initialize(self, layout, numGhostAgents):
+        """
+        Creates an ginitial aem state from a layout game state from layout array (see layout.py)
+        """
+        self.food = layout.food.copy()
+        self.capsules = layout.capsules[:]
+        self.layout = layout
+        self.score = 0
+        self.scoreChange = 0
+        self.agentStates = []
+        numGhosts = 0
+        for isPacman, pos in layout.agentPositions:
+            if not isPacman:
+                # Skip create ghost if enough
+                if numGhosts == numGhostAgents:
+                    continue
+                else:
+                    numGhosts += 1
+            # Create new pacman/ghost agent
+            self.agentStates.append(
+                AgentState(
+                    Configuration(pos, Directions.STOP), isPacman
+                )
+            )
+        self._eaten = [False for _ in self.agentStates]
+
+
+    @override
+    def __eq__(self, other):
+        """
+        Allows two states to be compared.
+        """
+        if not isinstance(other, GameStateData):
+            return False
+        if not self.agentStates == other.agentStates:
+            return False
+        if not self.food == other.food:
+            return False
+        if not self.capsules == other.capsules:
+            return False
+        if not self.score == other.score:
+            return False
+        return True
+    @override
+    def __hash__(self) -> int:
+        """
+        Allow use state in hash, set
+        """
+
+        for state in self.agentStates:
+            try:
+                int(hash(state))
+            except TypeError as e:
+                print(e)
+        return int(
+                (hash(tuple(self.agentStates))
+                + 13 * hash(self.food)
+                + 113 * hash(tuple(self.capsules)) + 7 * hash((self.score)))
+                % 1048575)
+    @override
+    def __str__(self) -> str:
+        width, height = self.layout.width, self.layout.height
+        map = Grid(width, height)
+        # TODO: reconstituteGrid from packedBit
+        # if type(self.food) == type ((1, 2)):
+        #     self.food = reconstituteGrid(self.food)
+        for x in range(width):
+            for y in range(height):
+                food, walls = self.food, self.layout.walls
+                map[x][y] = self._foodWallStr(food[x][y], walls[x][y])
+
+        for agentState in self.agentStates:
+            if agentState == None:
+                continue
+            if agentState.configuration == None:
+                continue
+            # TODO: create nearestPoint function in util
+            x, y = [int(i) for i in nearestPoint(agentState.configuration.pos)]
+            agent_direction = agentState.configuration.direction
+            if agentState.isPacman:
+                map[x][y] = self._pacStr(agent_direction)
+            else:
+                map[x][y] = self._ghostStr(agent_direction)
+
+        for x, y in self.capsules:
+            map[x][y] = 'o'
+        return str(map) + ("\nScore: %d\n" % self.score)
+
+
+    def _foodWallStr(self, hasFood, hasWall) -> str:
+        if hasFood:
+            return "."
+        elif hasWall:
+            return "%"
+        else:
+            return ' '
+
+    def _pacStr(self, dir):
+        """
+        Pacman reperesent by his mouth
+        """
+        if dir == Directions.NORTH:
+            return "v"
+        elif dir == Directions.SOUTH:
+            return "^"
+        elif dir == Directions.WEST:
+            return ">"
+        else:
+            return "<"
+    def _ghostStr(self, dir):
+        return "G"
+
+
+class Game:
+    """
+    Game manages the flow, agents
+    """
+
+    OLD_STDOUT = None
+    OLD_STDERR = None
+
+    def __init__(self, agents, display, rules, startingIndex = 0, muteAgents = False, catchExceptions = False) -> None:
+        self.agents: List[Agent] = agents
+        self.agentCarshed = False
+        self.display = display
+        # TODO: class name for rule
+        self.rules = rules
+        self.startingIndex = startingIndex
+        self.gameOver = False
+        self.muteAgents = muteAgents
+        self.catchExceptions = catchExceptions
+        self.moveHistory = []
+        self.totalAgentTimes = [0 for _ in agents]
+        self.totalAgentTimeWarnings = [0 for _ in agents]
+        self.agentTimeout = False
+        import io
+        self.agentOutput = [io.StringIO() for agent in agents]
+
+
+    def getProgress(self):
+        if self.gameOver:
+            return 1.0
+        else:
+            return self.rules.getProgress(self)
+
+    def _agentCrash(self, agentIndex, quite=False):
+        """Helper method for handling agent crashes"""
+        if not quite:
+            traceback.print_exc();
+        self.gameOver = True
+        self.agentCrashed = True
+        self.rules.agentCarshed(self, agentIndex)
+
+    def mute(self, agentIndex):
+        if not self.muteAgents:
+            return
+
+        global OLD_STDOUT, OLD_STDERR
+        import io
+        OLD_STDOUT = sys.stdout
+        OLD_STDERR = sys.stderr
+        sys.stdout = self.agentOutput[agentIndex]
+        sys.stderr = self.agentOutput[agentIndex]
+
+
+    def unmute(self):
+        """TODO: explain"""
+        if not self.muteAgents:
+            return
+        global OLD_STDOUT, OLD_STDERR
+
+        # Revert stdout/stderr to originials
+        sys.stdout = OLD_STDOUT
+        sys.stderr = OLD_STDERR
+
+    def run(self):
+        """
+        Main control loop for game play
+        """
+        self.display.initialize(self.state.data)
+        self.numMoves = 0
+
+
+        # for i in range(len(self.agents)):
+        #     agent = self.agents[i]
+        #     if not agent:
+        #         self.mute(i)
+        #         print("Agent %d failed to load" %i, file=sys.stderr)
+        #         self.unmute()
+        #         self._agentCrash(i, quite=True)
+        #         return
+        #     if ("registerIntialState" in dir(agent)):
+        #         self.mute(i)
+        #         if self.catchExceptions:
+        #             try:
+        #                 timed_func = TimeoutFunction (
+        #                 agent.registerIntialState, int(self.rules.getMaxStartupTIme(i))
+
+            # TODO
+
+
+
+
+
+try:
+    # Share cpu/gpu
+    import boinc
+    _BOINC_ENABLED = True
+except
+    _BOINC_ENABLED = False
