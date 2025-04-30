@@ -3,12 +3,11 @@ import inspect
 import heapq
 import random
 import io
-from typing import Any, Dict, List
 
-from game import AgentPoint
 
 class FixedRandom:
     def __init__(self):
+        # Initialize with a fixed state for reproducibility
         fixedState = (3, (2147483648, 507801126, 683453281, 310439348, 2597246090,
                           2209084787, 2267831527, 979920060, 3098657677, 37650879, 807947081, 3974896263,
                           881243242, 3100634921, 1334775171, 3965168385, 746264660, 4074750168, 500078808,
@@ -102,55 +101,104 @@ class FixedRandom:
         self.random = random.Random()
         self.random.setstate(fixedState)
 
+
+"""
+ Data structures useful for implementing SearchAgents
+"""
 class Stack:
-    def __init__(self) -> None:
-        self.lst= []
+    def __init__(self):
+        self.list = []
+
     def push(self, item):
-        self.lst.append(item)
+        "Push 'item' onto the stack"
+        self.list.append(item)
 
     def pop(self):
-        return self.lst.pop()
+        "Pop the most recently pushed item from the stack"
+        return self.list.pop()
 
     def isEmpty(self):
-        return len(self.lst) == 0
+        "Returns true if the stack is empty"
+        return len(self.list) == 0
 
 
 def manhattanDistance(xy1, xy2):
+    "Returns the Manhattan distance between points xy1 and xy2"
     return abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
 
 
 class Counter(dict):
     """
-    Extend standard dict python with safe default value for int, float
-    Same as defaultdict(int)
-    And other util function domain specific for pacman game
+    A counter keeps track of counts for a set of keys.
+
+    The counter class is an extension of the standard python
+    dictionary type.  It is specialized to have number values
+    (integers or floats), and includes a handful of additional
+    functions to ease the task of counting data.  In particular,
+    all keys are defaulted to have value 0.  Using a dictionary:
+
+    a = {}
+    print a['test']
+
+    would give an error, while the Counter class analogue:
+
+    >>> a = Counter()
+    >>> print a['test']
+    0
+
+    returns the default 0 value. Note that to reference a key
+    that you know is contained in the counter,
+    you can still use the dictionary syntax:
+
+    >>> a = Counter()
+    >>> a['test'] = 2
+    >>> print a['test']
+    2
+
+    This is very useful for counting things without initializing their counts,
+    see for example:
+
+    >>> a['blah'] += 1
+    >>> print a['blah']
+    1
+
+    The counter also includes additional functionality useful in implementing
+    the classifiers for this assignment.  Two counters can be added,
+    together.  See below for details.  They can also be normalized and their
+    total count and arg max can be extracted.
     """
 
-
-    def __getitem__(self, key) -> int | float:
-        self.setdefault(key, 0)
-        return dict.__getitem__(self, key)
-
+    def __getitem__(self, idx):
+        self.setdefault(idx, 0)
+        return dict.__getitem__(self, idx)
 
     def incrementAll(self, keys, count):
+        """
+        Increments all elements of keys by the same count.
+
+        >>> a = Counter()
+        >>> a.incrementAll(['one','two', 'three'], 1)
+        >>> a['one']
+        1
+        >>> a['two']
+        1
+        """
         for key in keys:
             self[key] += count
 
-
     def totalCount(self):
         """
-        Total sum of counts for all keys
+        Returns the sum of counts for all keys.
         """
         return sum(self.values())
 
-    def nomalize(self):
+    def normalize(self):
         """
         Edits the counter such that the total count of all
         keys sums to 1.  The ratio of counts for all keys
         will remain the same. Note that normalizing an empty
         Counter will result in an error.
         """
-
         total = float(self.totalCount())
         if total == 0:
             return
@@ -163,150 +211,139 @@ def raiseNotDefined():
     line = inspect.stack()[1][2]
     method = inspect.stack()[1][3]
 
-    print("** Method not implement %s at line %s of %s" % (method, line, fileName))
-
+    print("*** Method not implemented: %s at line %s of %s" %
+          (method, line, fileName))
     sys.exit(1)
 
 
 def normalize(vectorOrCounter):
     """
-    Normalize a vector or counter by dividing each value by the sum of all value
-    With vector calculate the sum the nomalize ratio as a new list
+    Normalize a vector or counter by dividing each value by the sum of all values
     """
-    normalizeCounter = Counter()
-    if type(vectorOrCounter) == type(normalizeCounter):
+    normalizedCounter = Counter()
+    if type(vectorOrCounter) == type(normalizedCounter):
         counter = vectorOrCounter
         total = float(counter.totalCount())
         if total == 0:
             return counter
         for key in list(counter.keys()):
             value = counter[key]
-            normalizeCounter[key] = value / total
-        return normalizeCounter
+            normalizedCounter[key] = value / total
+        return normalizedCounter
     else:
-        # Is vecor
         vector = vectorOrCounter
         s = float(sum(vector))
         if s == 0:
             return vector
         return [el / s for el in vector]
 
-def sample(distribution , values: List | None = None):
-    """
-    This function pass and modify value of @param values as result
 
-    """
-    # If counter => Extract key, value as distribution, values
+def sample(distribution, values=None):
     if type(distribution) == Counter:
         items = sorted(distribution.items())
-        # If input distribution is counter => extract as distribution
         distribution = [i[1] for i in items]
         values = [i[0] for i in items]
-    # Normalize if not total ratio is 1
     if sum(distribution) != 1:
         distribution = normalize(distribution)
-
-    # Random get sample from distribution
     choice = random.random()
     i, total = 0, distribution[0]
     while choice > total:
         i += 1
         total += distribution[i]
-    if values == None:
-        raise Exception("Unknow distribution", distribution)
-    # Return sample
     return values[i]
 
+
+def getProbability(value, distribution, values):
+    """
+    Gives the probability of a value under a discrete distribution
+    defined by (distributions, values).
+    """
+    total = 0.0
+    for prob, val in zip(distribution, values):
+        if val == value:
+            total += prob
+    return total
+
 def chooseFromDistribution(distribution):
-    """
-    Take either a counter or a list of (prob, element) pairs and sample
-    """
+    "Takes either a counter or a list of (prob, key) pairs and samples"
     if type(distribution) == dict or type(distribution) == Counter:
         return sample(distribution)
     r = random.random()
     base = 0.0
-    # Iterate over item, accumulate until probability except random threshold
     for prob, element in distribution:
         base += prob
         if r <= base:
             return element
 
-
-def nearestPoint(pos: AgentPoint) -> AgentPoint:
+def nearestPoint(pos):
     """
-    Find the nearest grid point to a position (discretizes)
+    Finds the nearest grid point to a position (discretizes).
     """
-    current_row, current_col = pos
+    (current_row, current_col) = pos
 
-    grid_row = current_row + 0.5
-    grid_col = current_col + 0.5
+    grid_row = int(current_row + 0.5)
+    grid_col = int(current_col + 0.5)
     return (grid_row, grid_col)
 
 
+# code to handle timeouts
+# NOTE: TimeoutFuncton is NOT reentrant.  Later timeouts will silently
+# disable earlier timeouts.  Could be solved by maintaining a global list
+# of active time outs.
 import signal
 import time
 
-class TimeoutFunctionException(Exception):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
 class TimeoutFunction:
-    """
-    Wrap other function to enforce time limit
-
-    """
-    def __init__(self, function, timeout) -> None:
+    def __init__(self, function, timeout):
         self.timeout = timeout
         self.function = function
+
     def handle_timeout(self, signum, frame):
         raise TimeoutFunctionException()
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        """
-        If we have SIGALRM signal, use it to ’cause an exception if and
-        when this function runs too long. Otherwise check the time taken
-        after the method has returned, and throw an exception then
-        """
-        if hasattr(signal, "SIGALRM"):
-            old = signal.signal(signal.SIGALRM, self. handle_timeout)
+    def __call__(self, *args, **keyArgs):
+        # If we have SIGALRM signal, use it to cause an exception if and
+        # when this function runs too long.  Otherwise check the time taken
+        # after the method has returned, and throw an exception then.
+        if hasattr(signal, 'SIGALRM'):
+            old = signal.signal(signal.SIGALRM, self.handle_timeout)
             signal.alarm(self.timeout)
             try:
-                result = self.function(*args, **kwds)
+                result = self.function(*args, **keyArgs)
             finally:
                 signal.signal(signal.SIGALRM, old)
             signal.alarm(0)
         else:
             startTime = time.time()
-            result = self.function(*args, **kwds)
+            result = self.function(*args, **keyArgs)
             timeElapsed = time.time() - startTime
             if timeElapsed >= self.timeout:
                 self.handle_timeout(None, None)
         return result
 
+
 _ORIGINAL_STDOUT = None
 _ORIGINAL_STDERR = None
 _MUTED = False
 
-class WritableNull:
-    def __init__(self) -> None:
-        pass
-    def write(self, text):
-        pass
-    def flush(self):
-        pass
 
 def mutePrint():
-    """
-    Ignore print by direct output to null device
-    """
     global _ORIGINAL_STDOUT, _ORIGINAL_STDERR, _MUTED
     if _MUTED:
         return
+    _MUTED = True
+
     _ORIGINAL_STDOUT = sys.stdout
+    #_ORIGINAL_STDERR = sys.stderr
     sys.stdout = WritableNull()
+    #sys.stderr = WritableNull()
+
 
 def unmutePrint():
     global _ORIGINAL_STDOUT, _ORIGINAL_STDERR, _MUTED
     if not _MUTED:
         return
     _MUTED = False
+
     sys.stdout = _ORIGINAL_STDOUT
+    #sys.stderr = _ORIGINAL_STDERR

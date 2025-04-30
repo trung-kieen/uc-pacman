@@ -3,8 +3,7 @@ import time
 import os
 import traceback
 import sys
-import util
-from util import nearestPoint
+
 
 
 # Agent speed can be floating point number so dx, dy is also floating point number
@@ -249,6 +248,8 @@ class Grid:
     """
     A 2-d arrya object composition list of list as grid[x][y]
     with x, y is Point. Starting point of pac man is (0, 0)
+    Quite annoy when grid beuse in many type of data like boolean, int, str
+    => TODO: refactor polymorphism
     """
 
     def __init__(self, width: int, height: int, initialValue = False, bitRepesentation = None) -> None:
@@ -367,7 +368,7 @@ class Grid:
 
 
 class GameStateData:
-    def __init__(self, prevState: Self | None) -> None:
+    def __init__(self, prevState: Self | None = None) -> None:
         """
         Generate new data packet by copying information from its predecessor.
         """
@@ -384,7 +385,7 @@ class GameStateData:
         self._foodAdded = None
         self._capsulesEaten = None
         self._agentMoved = None
-        self._wind = False
+        self._win = False
         self._lose = False
         self.scoreChange = 0
 
@@ -482,6 +483,7 @@ class GameStateData:
             if agentState.configuration == None:
                 continue
             # TODO: create nearestPoint function in util
+            from util import nearestPoint
             x, y = [int(i) for i in nearestPoint(agentState.configuration.pos)]
             agent_direction = agentState.configuration.direction
             if agentState.isPacman:
@@ -609,9 +611,9 @@ class Game:
 
 
 
-try:
-    # Share cpu/gpu
-    import boinc
-    _BOINC_ENABLED = True
-except
-    _BOINC_ENABLED = False
+# try:
+#     # Share cpu/gpu
+#     import boinc
+#     _BOINC_ENABLED = True
+# except
+#     _BOINC_ENABLED = False
