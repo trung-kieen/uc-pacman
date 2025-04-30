@@ -10,9 +10,6 @@ import sys
 AgentPoint = Tuple[float, float]
 GridPoint = Tuple[int, int]
 
-class Agent:
-    def __init__(self, index = 0):
-        self.index = index
 
 
 class Directions:

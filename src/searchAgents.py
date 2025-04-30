@@ -27,15 +27,16 @@ description.
 
 import time
 from inspect import Attribute
+from typing import override
 from _game import Directions
-from game import Agent
+from game import Actions, Agent
 from pacman import GameState
 import search
 
 class GoWestAgent(Agent):
     def getAction(self, state: GameState):
-        if Directions.SOUTH in state.getLegalPacmanActions():
-            return Directions.SOUTH
+        if Directions.WEST in state.getLegalPacmanActions():
+            return Directions.WEST
         else:
             return Directions.STOP
 
@@ -71,7 +72,7 @@ class SearchAgent(Agent):
 
         # Get function from search.py
         func = getattr(search, fn)
-        if 'heuristic' not in func.__code__.cor_varnames:
+        if 'heuristic' not in func.__code__.co_varnames:
             print(("[SearchAgent] using funcion " + fn))
             self.searchFunction = func
         else:
@@ -123,3 +124,91 @@ class SearchAgent(Agent):
             return self.actions[i]
         else:
             return Directions.STOP
+
+class PositionSearchProblem(search.SearchProblem):
+    """
+    A search problem defines the states space, start state, goal test, successor
+    and cost function. This search problem cn be used to find paths to a
+    particular point on the pacman board.
+
+    The state space consists of (x,y) positions in a pacman game.
+    """
+
+    def __init__(self, gameState: GameState, costFn = lambda x: 1,
+                 goal = (1,1), start = None, warn=True, visualize=True):
+        pass
+        self.walls = gameState.getWalls()
+
+        # Start pos
+        self.startState = gameState.getPacmanPosition()
+        if start != None: self.startState = start
+        self.goal = goal
+        self.costFn = costFn
+        self.visualize = visualize
+        if warn and (gameState.getNumFood() != 1 or not gameState.hasFood(*goal)):
+            print("Warning: this does not look like a regular search maze")
+
+        # For display purpose
+        self._visited = {}
+        self._visitedlist = []
+        self._expanded = 0
+
+
+
+    def getStartState(self):
+        return self.startState
+
+    def isGoalState(self, state):
+        isGoal = self.goal == state
+        if isGoal and self.visualize:
+            # Log expanded list
+            self._visitedlist.append(state)
+            import __main__
+            if '__display' in dir(__main__):
+                if 'drawExpandedCells' in dir(__main__.display):
+                    __main__.display.drawExpandedCells(self._visitedlist)
+
+        return isGoal
+
+
+
+    def getSuccessors(self, state):
+        """
+        Return successor states, the actions they require, and a cost of 1.
+
+        As noted in search.py:
+        For a given state, this could return a list of triples,
+        (successor, action, stepCost), where 'successor' i a successor to
+        the curent staste, 'action' is the action require to get there,
+        and 'stepCost' is the incremental cost of expanding to that successor
+        """
+
+
+
+        successor = []
+        for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+            x, y = state
+            dx, dy = Actions.directionToVector(action)
+            nextx, nexty = int(x + dx), int(y + dy)
+            if not self.walls[nextx][nexty]:
+                nextState = (nextx, nexty)
+                cost = self.costFn(nextState)
+                successor.append((nextState, action, cost))
+            # For display purpose
+        self._expanded += 1
+        if state not in self._visited:
+            self._visited[state] = True
+            self._visitedlist.append(state)
+
+
+    @override
+    def getCostOfActions(self, actions):
+        if actions == None: return 999999
+        x, y = self.getStartState()
+        cost = 0
+        for action in actions:
+            dx, dy = Actions.directionToVector(action)
+            x, y = int(x + dx), int(y + dy)
+            if self.walls[x][y]: return 999999
+            cost += self.costFn((x, y))
+        return cost

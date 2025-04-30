@@ -33,7 +33,7 @@ class SearchProblem:
 
     def getStartState(self):
         """
-        Returns the start stsate for the search problem
+        Returns the start state for the search problem
         """
         util.raiseNotDefined()
 
@@ -51,12 +51,13 @@ class SearchProblem:
         and 'stepCost' is the incremental cost of expanding to that successor.
         """
         util.raiseNotDefined()
-    def getCostOfActions(self, action):
+    def getCostOfActions(self, actions) -> int:
         """
         Return total cost to particular sequence of actions.
         The sequence must be composed of legal moves.
         """
         util.raiseNotDefined()
+        return 0
 
 def tinyMazeSearch(problem):
     """
