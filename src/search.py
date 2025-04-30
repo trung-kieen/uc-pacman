@@ -19,6 +19,7 @@
 
 
 
+from inspect import isgenerator, ismemberdescriptor
 from game import Directions
 from pacman import GameState
 import searchAgents
@@ -77,10 +78,76 @@ def dfs(problem:  SearchProblem):
     """
     problem - PositionSearchProblem that implement SearchProblem
     """
-    print(problem)
 
-    actions = []
-    stack = util.Stack();
+    frontier = util.Stack()
+    explored = set()
+    startState = problem.getStartState()
+    startNode = (startState, [], 0)
+    frontier.push(startNode)
+    while not frontier.isEmpty():
+        currentState, actions, currentCost = frontier.pop()
+        if problem.isGoalState(currentState):
+            return actions
 
+        # Explore
 
+        if currentState not in explored:
+            explored.add(currentState)
+            for (newState, newAction, preCost) in problem.getSuccessors(currentState):
+                child_node = (newState, actions + [newAction], preCost + 1)
+                frontier.push(child_node)
     return [Directions.SOUTH]
+
+
+
+def bfs(problem:  SearchProblem):
+    """
+    problem - PositionSearchProblem that implement SearchProblem
+    """
+
+    frontier = util.Queue()
+    explored = set()
+    startState = problem.getStartState()
+    startNode = (startState, [], 0)
+    frontier.push(startNode)
+    while not frontier.isEmpty():
+        currentState, actions, currentCost = frontier.pop()
+        if problem.isGoalState(currentState):
+            return actions
+
+        # Explore
+
+        if currentState not in explored:
+            explored.add(currentState)
+            for (newState, newAction, preCost) in problem.getSuccessors(currentState):
+                child_node = (newState, actions + [newAction], preCost + 1)
+                frontier.push(child_node)
+    return [Directions.SOUTH]
+
+
+
+
+# def closestDotSearch(problem:  SearchProblem):
+#     """
+#     problem - PositionSearchProblem that implement SearchProblem
+#     """
+
+#     problem.
+#     frontier = util.Queue()
+#     explored = set()
+#     startState = problem.getStartState()
+#     startNode = (startState, [], 0)
+#     frontier.push(startNode)
+#     while not frontier.isEmpty():
+#         currentState, actions, currentCost = frontier.pop()
+#         if problem.isGoalState(currentState):
+#             return actions
+
+#         # Explore
+
+#         if currentState not in explored:
+#             explored.add(currentState)
+#             for (newState, newAction, preCost) in problem.getSuccessors(currentState):
+#                 child_node = (newState, actions + [newAction], preCost + 1)
+#                 frontier.push(child_node)
+#     return [Directions.SOUTH]

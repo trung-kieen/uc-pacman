@@ -53,7 +53,7 @@ class SearchAgent(Agent):
 
     Or any other function implement the same interface
     """
-    def __init__(self, fn = 'depthFirstSearch', prob = "PositionSearchProblem", heuristic="nullHeuristic"):
+    def __init__(self, fn = 'dfs', prob = "PositionSearchProblem", heuristic="nullHeuristic"):
         """
         # Warning: some advanced Python magic is employed blow to find the right functions and problems
 
@@ -176,6 +176,8 @@ class PositionSearchProblem(search.SearchProblem):
         """
         Return successor states, the actions they require, and a cost of 1.
 
+        @return (nextState, action, cost)
+
         As noted in search.py:
         For a given state, this could return a list of triples,
         (successor, action, stepCost), where 'successor' i a successor to
@@ -199,6 +201,7 @@ class PositionSearchProblem(search.SearchProblem):
         if state not in self._visited:
             self._visited[state] = True
             self._visitedlist.append(state)
+        return successor
 
 
     @override
@@ -212,3 +215,66 @@ class PositionSearchProblem(search.SearchProblem):
             if self.walls[x][y]: return 999999
             cost += self.costFn((x, y))
         return cost
+
+
+class ClosestDotSearchAgent(SearchAgent):
+    "Search for all food using a sequence of searches"
+    def registerInitialState(self, state):
+        self.actions = []
+        currentState = state
+        while(currentState.getFood().count() > 0):
+            nextPathSegment = self.findPathToClosestDot(currentState) # The missing piece
+            self.actions += nextPathSegment
+            for action in nextPathSegment:
+                legal = currentState.getLegalActions()
+                if action not in legal:
+                    t = (str(action), str(currentState))
+                    raise Exception('findPathToClosestDot returned an illegal move: %s!\n%s' % t)
+                currentState = currentState.generateSuccessor(0, action)
+        self.actionIndex = 0
+        print('Path found with cost %d.' % len(self.actions))
+
+    def findPathToClosestDot(self, gameState):
+        """
+        Returns a path (a list of actions) to the closest dot, starting from
+        gameState.
+        """
+        startPosition = gameState.getPacmanPosition()
+        food = gameState.getFood()
+        walls = gameState.getWalls()
+        problem = AnyFoodSearchProblem(gameState)
+
+        # return search.depthFirstSearch(problem)
+        return search.bfs(problem)
+
+
+class AnyFoodSearchProblem(PositionSearchProblem):
+    """
+    A search problem for finding a path to any food.
+
+    This search problem is just like the PositionSearchProblem, but has a
+    different goal test, which you need to fill in below.  The state space and
+    successor function do not need to be changed.
+
+    The class definition above, AnyFoodSearchProblem(PositionSearchProblem),
+    inherits the methods of the PositionSearchProblem.
+
+    You can use this search problem to help you fill in the findPathToClosestDot
+    method.
+    """
+
+    def __init__(self, gameState):
+        "Stores information from the gameState.  You don't need to change this."
+        # Store the food for later reference
+        self.food = gameState.getFood()
+
+        # Store info for the PositionSearchProblem (no need to change this)
+        self.walls = gameState.getWalls()
+        self.startState = gameState.getPacmanPosition()
+        self.costFn = lambda x: 1
+        self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
+
+    def isGoalState(self, state):
+        x,y = state
+
+        return self.food[x][y]
