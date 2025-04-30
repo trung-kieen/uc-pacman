@@ -333,16 +333,16 @@ class PacmanRules:
             state.data.food[x][y] = False
             state.data._foodEaten = position
             numFood = state.getNumFood()
-            
+
             if numFood == 0 and not state.data._lose:
                 state.data.scoreChange += 500
                 state.data._win = True
-                
+
         # Eat capsule
         if(position in state.getCapsules()):
             state.data.capsules.remove(position)
             state.data._capsuleEaten = position
-            
+
             # Reset all ghosts' scared timers
             for index in range(1, len(state.data.agentStates)):
                 state.data.agentStates[index].scaredTimer = SCARED_TIME
@@ -400,13 +400,13 @@ class GhostRules:
             for index in range(1, len(state.data.agentStates)):
                 ghostState = state.data.agentStates[index]
                 ghostPosition = ghostState.configuration.getPosition()
-                
+
                 if GhostRules.canKill(pacmanPosition, ghostPosition):
                     GhostRules.collide(state, ghostState, index)
         else:
             ghostState = state.data.agentStates[agentIndex]
             ghostPosition = ghostState.configuration.getPosition()
-            
+
             if GhostRules.canKill(pacmanPosition, ghostPosition):
                 GhostRules.collide(state, ghostState, agentIndex)
     checkDeath = staticmethod(checkDeath)
@@ -587,10 +587,8 @@ def loadAgent(pacman, nographics):
     pythonPathDirs.append('.')
 
     for moduleDir in pythonPathDirs:
-        if not os.path.isdir(moduleDir):
-            continue
-        moduleNames = [f for f in os.listdir(
-            moduleDir) if f.endswith('gents.py')]
+        if not os.path.isdir(moduleDir): continue
+        moduleNames = [f for f in os.listdir(moduleDir) if f.endswith('gents.py')]
         for modulename in moduleNames:
             try:
                 module = __import__(modulename[:-3])
@@ -598,12 +596,9 @@ def loadAgent(pacman, nographics):
                 continue
             if pacman in dir(module):
                 if nographics and modulename == 'keyboardAgents.py':
-                    raise Exception(
-                        'Using the keyboard requires graphics (not text display)')
+                    raise Exception('Using the keyboard requires graphics (not text display)')
                 return getattr(module, pacman)
-    raise Exception('The agent ' + pacman +
-                    ' is not specified in any *Agents.py.')
-
+    raise Exception('The agent ' + pacman + ' is not specified in any *Agents.py.')
 
 def replayGame(layout, actions, display):
     import pacmanAgents

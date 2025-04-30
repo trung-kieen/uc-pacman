@@ -19,7 +19,9 @@
 
 
 
+from game import Directions
 from pacman import GameState
+import searchAgents
 import util
 
 
@@ -68,3 +70,17 @@ def tinyMazeSearch(problem):
     s = Directions.SOUTH
     w = Directions.WEST
     return [s, s, w, s, w, w, s, w]
+
+
+
+def dfs(problem:  SearchProblem):
+    """
+    problem - PositionSearchProblem that implement SearchProblem
+    """
+    print(problem)
+
+    actions = []
+    stack = util.Stack();
+
+
+    return [Directions.SOUTH]
