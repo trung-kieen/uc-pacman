@@ -166,21 +166,6 @@ class PriorityQueue:
     def isEmpty(self):
         return len(self.heap) == 0
 
-    def update(self, item, priority):
-        # If item already in priority queue with higher priority, update its priority and rebuild the heap.
-        # If item already in priority queue with equal or lower priority, do nothing.
-        # If item not in priority queue, do the same thing as self.push.
-        for index, (p, c, i) in enumerate(self.heap):
-            if i == item:
-                if p <= priority:
-                    break
-                del self.heap[index]
-                self.heap.append((priority, c, item))
-                heapq.heapify(self.heap)
-                break
-        else:
-            self.push(item, priority)
-
 class PriorityQueueWithFunction(PriorityQueue):
     """
     Implements a priority queue with the same push/pop signature of the
@@ -282,6 +267,14 @@ class Counter(dict):
         for key in list(self.keys()):
             self[key] = self[key] / total
 
+    def argMax(self):
+        if len(self.keys()) == 0: return None
+        maxValue = max(self.values())
+        maxIdx = [arg for arg, value in self.items() if maxValue]
+        return max
+def flipCoin(p) -> bool:
+    r = random.random()
+    return r < p
 
 def raiseNotDefined():
     fileName = inspect.stack()[1][1]
@@ -424,3 +417,22 @@ def unmutePrint():
 
     sys.stdout = _ORIGINAL_STDOUT
     #sys.stderr = _ORIGINAL_STDERR
+
+
+def lookup(name, namespace):
+    """
+    Get a method or class from any imported module from its name.
+    Usage: lookup(functionName, globals())
+    """
+    dots = name.count('.')
+    if dots > 0:
+        moduleName, objName = '.'.join(name.split('.')[:-1]), name.split('.')[-1]
+        module = __import__(moduleName)
+        return getattr(module, objName)
+    else:
+        modules = [obj for obj in list(namespace.values()) if str(type(obj)) == "<type 'module'>"]
+        options = [getattr(module, name) for module in modules if name in dir(module)]
+        options += [obj[1] for obj in list(namespace.items()) if obj[0] == name ]
+        if len(options) == 1: return options[0]
+        if len(options) > 1: raise Exception('Name conflict for %s')
+        raise Exception('%s not found as a method or class' % name)

@@ -26,12 +26,11 @@ description.
 
 
 import time
-from inspect import Attribute
-from typing import override
-from _game import Directions
-from game import Actions, Agent
+from typing import List, override
+from game import Actions, Agent, Directions
 from pacman import GameState
 import search
+import util
 
 class GoWestAgent(Agent):
     def getAction(self, state: GameState):
@@ -76,7 +75,7 @@ class SearchAgent(Agent):
             print(("[SearchAgent] using funcion " + fn))
             self.searchFunction = func
         else:
-            # Get function from searchAgents.py
+            # Get heuristic function from searchAgents.py or search.py
             if heuristic in list(globals().keys()):
                 heur = globals()[heuristic]
             elif heuristic in dir(search):
@@ -125,156 +124,280 @@ class SearchAgent(Agent):
         else:
             return Directions.STOP
 
+
 class PositionSearchProblem(search.SearchProblem):
     """
-    A search problem defines the states space, start state, goal test, successor
-    and cost function. This search problem cn be used to find paths to a
-    particular point on the pacman board.
+    Stores the start and goal
 
-    The state space consists of (x,y) positions in a pacman game.
     """
-
-    def __init__(self, gameState: GameState, costFn = lambda x: 1,
-                 goal = (1,1), start = None, warn=True, visualize=True):
-        pass
+    def __init__(self, gameState, costFn = lambda x: 1, goal = (1,1), start= None, warn = True, visualize=True) -> None:
         self.walls = gameState.getWalls()
-
-        # Start pos
         self.startState = gameState.getPacmanPosition()
-        if start != None: self.startState = start
+        if start != None: self.stateState = start
         self.goal = goal
         self.costFn = costFn
         self.visualize = visualize
         if warn and (gameState.getNumFood() != 1 or not gameState.hasFood(*goal)):
             print("Warning: this does not look like a regular search maze")
 
-        # For display purpose
-        self._visited = {}
+
+        self._visited = { }
         self._visitedlist = []
         self._expanded = 0
-
-
 
     def getStartState(self):
         return self.startState
 
+
     def isGoalState(self, state):
-        isGoal = self.goal == state
+        isGoal = state == self.goal
+
         if isGoal and self.visualize:
-            # Log expanded list
             self._visitedlist.append(state)
             import __main__
-            if '__display' in dir(__main__):
-                if 'drawExpandedCells' in dir(__main__.display):
-                    __main__.display.drawExpandedCells(self._visitedlist)
+            if '_display' in dir(__main__):
+                if 'drawExpandedCells' in dir(__main__._display):
+                    __main__._display.drawExpandedCells(self._visitedlist)
 
         return isGoal
 
-
-
-    def getSuccessors(self, state):
+    def getSuccessors(self, state) -> List:
         """
-        Return successor states, the actions they require, and a cost of 1.
+        Returns successor states, the actions they require, and a cost of 1.
 
-        @return (nextState, action, cost)
-
-        As noted in search.py:
-        For a given state, this could return a list of triples,
-        (successor, action, stepCost), where 'successor' i a successor to
-        the curent staste, 'action' is the action require to get there,
-        and 'stepCost' is the incremental cost of expanding to that successor
+         As noted in search.py:
+             For a given state, this should return a list of triples,
+         (successor, action, stepCost), where 'successor' is a
+         successor to the current state, 'action' is the action
+         required to get there, and 'stepCost' is the incremental
+         cost of expanding to that successor
         """
 
-
-
-        successor = []
+        successors = []
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            x, y = state
+            x,y = state
             dx, dy = Actions.directionToVector(action)
             nextx, nexty = int(x + dx), int(y + dy)
             if not self.walls[nextx][nexty]:
                 nextState = (nextx, nexty)
                 cost = self.costFn(nextState)
-                successor.append((nextState, action, cost))
-            # For display purpose
-        self._expanded += 1
+                successors.append( ( nextState, action, cost) )
+
+        # Bookkeeping for display purposes
+        self._expanded += 1 # DO NOT CHANGE
         if state not in self._visited:
             self._visited[state] = True
             self._visitedlist.append(state)
-        return successor
 
+        return successors
 
-    @override
     def getCostOfActions(self, actions):
+        """
+        Returns the cost of a particular sequence of actions. If those actions
+        include an illegal move, return 999999.
+        """
         if actions == None: return 999999
-        x, y = self.getStartState()
+        x,y= self.getStartState()
+        cost = 0
+        for action in actions:
+            # Check figure out the next state and see whether its' legal
+            dx, dy = Actions.directionToVector(action)
+            x, y = int(x + dx), int(y + dy)
+            if self.walls[x][y]: return 999999
+            cost += self.costFn((x,y))
+        return cost
+
+class FoodSearchProblem:
+    """
+    Search for all food in game
+
+    State use in this problem is a tuple (pacmanPosition, foodGrid)
+    where pacmanPosition: a tutple (x, y) of integer specifying Pacman's position
+    foodGrid: a composition class Grid (2d) of bool to check exist food or node
+    """
+    def __init__(self, startingGameState):
+        self.start = (startingGameState.getPacmanPosition(), startingGameState.getFood())
+        self.walls = startingGameState.getWalls()
+        self.startingGameState = startingGameState
+        self._expanded = 0
+        self.heuristicInfo = {}
+
+    def getStartState(self):
+        return self.start
+
+    def isGoalState(self, state):
+        return state[1].count() == 0
+
+    def getSuccessors(self, state):
+        """
+        Returns successor states, the actions they require, and a cost of 1.
+        """
+        successors= []
+        self._expanded += 1
+        for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+            x, y = state[0]
+            dx, dy = Actions.directionToVector(direction)
+            nextx, nexty = int(x + dx), int(y+dy)
+            if not self.walls[nextx][nexty]:
+                nextFood = state[1].copy()
+                nextFood[nextx][nexty] = False
+                successors.append( ( ((nextx, nexty), nextFood), direction, 1) )
+        return successors
+
+    def getCostOfActions(self, actions):
+        """
+        REturn the cost of particular sequence of actions. If those actions
+        include an illagal move, return 999999
+        """
+        x, y = self.getStartState()[0]
         cost = 0
         for action in actions:
             dx, dy = Actions.directionToVector(action)
             x, y = int(x + dx), int(y + dy)
-            if self.walls[x][y]: return 999999
-            cost += self.costFn((x, y))
+            if self.walls[x][y]:
+                return 99999
+            cost += 1
         return cost
 
 
 class ClosestDotSearchAgent(SearchAgent):
-    "Search for all food using a sequence of searches"
-    def registerInitialState(self, state):
+    def registerInitialState(self, state ):
         self.actions = []
         currentState = state
         while(currentState.getFood().count() > 0):
-            nextPathSegment = self.findPathToClosestDot(currentState) # The missing piece
+            nextPathSegment = self.findPathToClosestDot(currentState)
             self.actions += nextPathSegment
             for action in nextPathSegment:
                 legal = currentState.getLegalActions()
                 if action not in legal:
                     t = (str(action), str(currentState))
-                    raise Exception('findPathToClosestDot returned an illegal move: %s!\n%s' % t)
+                    raise Exception("findPathToClosestDot return an illgal move: %s!\n%s" % (t))
+
+                # Get next state by on execute action
                 currentState = currentState.generateSuccessor(0, action)
         self.actionIndex = 0
-        print('Path found with cost %d.' % len(self.actions))
+        print("Path found with cost %d." % len(self.actions))
+
+
 
     def findPathToClosestDot(self, gameState):
-        """
-        Returns a path (a list of actions) to the closest dot, starting from
-        gameState.
-        """
         startPosition = gameState.getPacmanPosition()
         food = gameState.getFood()
         walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState)
-
-        # return search.depthFirstSearch(problem)
+        # TODO: inject from command line
         return search.bfs(problem)
-
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
-    A search problem for finding a path to any food.
+    A search problem for find a path to any food.
 
-    This search problem is just like the PositionSearchProblem, but has a
-    different goal test, which you need to fill in below.  The state space and
-    successor function do not need to be changed.
-
-    The class definition above, AnyFoodSearchProblem(PositionSearchProblem),
-    inherits the methods of the PositionSearchProblem.
-
-    You can use this search problem to help you fill in the findPathToClosestDot
-    method.
+    Just like PositionSearchProblem, but has a different goal test,
+    which you need to fill in below. The state space and
+    successor function not need to be change
     """
 
-    def __init__(self, gameState):
-        "Stores information from the gameState.  You don't need to change this."
-        # Store the food for later reference
+    def __init__(self, gameState) -> None:
         self.food = gameState.getFood()
-
-        # Store info for the PositionSearchProblem (no need to change this)
         self.walls = gameState.getWalls()
         self.startState = gameState.getPacmanPosition()
         self.costFn = lambda x: 1
-        self._visited, self._visitedlist, self._expanded = {}, [], 0 # DO NOT CHANGE
+        self._visited = { }
+        self._visitedlist = []
+        self._expanded = 0
 
+    @override
     def isGoalState(self, state):
-        x,y = state
-
+        x, y = state
         return self.food[x][y]
+
+
+
+
+def foodHeuristic(state, problem):
+    """Encourage Pacman to eat all the pellets as fast as possible."""
+    position, foodGrid = state
+
+    heuristic = 0
+    foodList = foodGrid.asList()
+
+    #calculate the distance from current node to food-containing nodes
+    if len(foodList) > 0:
+        closestPoint = findClosestPoint(position, foodList)
+        farthestPoint = findFarthestPoint(position, foodList)
+
+        closestPointIndex = closestPoint[0]
+        farthestPointIndex = farthestPoint[0]
+
+        currentNode = problem.startingGameState
+        closestFoodNode = foodList[closestPointIndex]
+        farthestFoodNode = foodList[farthestPointIndex]
+
+        #distance between current location and closest manhattan node
+        currentToClosest = mazeDistance(position, closestFoodNode, currentNode)
+
+        #distance between closest manhattan node and farthest manhattan node
+        closestToFarthest = mazeDistance(closestFoodNode, farthestFoodNode, currentNode)
+
+        heuristic = currentToClosest + closestToFarthest
+
+    return heuristic
+
+
+def findClosestPoint(location, goalArray):
+    """
+    Helper function for corners
+    """
+
+    closestPoint = 0
+    closestPointCost = util.manhattanDistance( location, goalArray[0] )
+
+    for j in range(len(goalArray)):
+        #calculate distance between current state to corner
+        cornerLocation = goalArray[j]
+        lengthToCorner = util.manhattanDistance( location, cornerLocation )
+
+        if lengthToCorner < closestPointCost:
+            closestPoint = j
+            closestPointCost = lengthToCorner
+
+    return (closestPoint, closestPointCost)
+
+def findFarthestPoint(location, goalArray):
+    """
+    Helper function for corners
+    """
+
+    farthestPoint = 0
+    farthestPointCost = util.manhattanDistance( location, goalArray[0] )
+
+    for j in range(len(goalArray)):
+        #calculate distance between current state to corner
+        cornerLocation = goalArray[j]
+        lengthToCorner = util.manhattanDistance( location, cornerLocation )
+
+        if lengthToCorner > farthestPointCost:
+            farthestPoint = j
+            farthestPointCost = lengthToCorner
+
+    return (farthestPoint, farthestPointCost)
+
+
+
+def mazeDistance(point1, point2, gameState):
+    """
+    Returns the maze distance between any two points, using the search functions
+    you have already built. The gameState can be any game state -- Pacman's
+    position in that state is ignored.
+
+    Example usage: mazeDistance( (2,4), (5,6), gameState)
+
+    This might be a useful helper function for your ApproximateSearchAgent.
+    """
+    x1, y1 = point1
+    x2, y2 = point2
+    walls = gameState.getWalls()
+    assert not walls[x1][y1], 'point1 is a wall: ' + str(point1)
+    assert not walls[x2][y2], 'point2 is a wall: ' + str(point2)
+    prob = PositionSearchProblem(gameState, start=point1, goal=point2, warn=False, visualize=False)
+    return len(search.bfs(prob))

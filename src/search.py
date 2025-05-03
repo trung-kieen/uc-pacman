@@ -19,7 +19,7 @@
 
 
 
-from inspect import isgenerator, ismemberdescriptor
+from typing import List
 from game import Directions
 from pacman import GameState
 import searchAgents
@@ -46,7 +46,7 @@ class SearchProblem:
         """
         util.raiseNotDefined()
 
-    def getSuccessors(self, state):
+    def getSuccessors(self, state) -> List:
         """
         For a givent state, this should return a list of triples, (successor,
         action, stepCost), where the successor to the current state,
@@ -74,7 +74,7 @@ def tinyMazeSearch(problem):
 
 
 
-def dfs(problem:  SearchProblem):
+def depthFirstSearch(problem):
     """
     problem - PositionSearchProblem that implement SearchProblem
     """
@@ -96,11 +96,11 @@ def dfs(problem:  SearchProblem):
             for (newState, newAction, preCost) in problem.getSuccessors(currentState):
                 child_node = (newState, actions + [newAction], preCost + 1)
                 frontier.push(child_node)
-    return [Directions.SOUTH]
+    return []
 
 
 
-def bfs(problem:  SearchProblem):
+def breadthFirstSearch(problem):
     """
     problem - PositionSearchProblem that implement SearchProblem
     """
@@ -122,32 +122,42 @@ def bfs(problem:  SearchProblem):
             for (newState, newAction, preCost) in problem.getSuccessors(currentState):
                 child_node = (newState, actions + [newAction], preCost + 1)
                 frontier.push(child_node)
-    return [Directions.SOUTH]
+    return []
+
+
+def nullHeuristic(state, problem = None):
+    return 0
+
+def aStarSearch(problem, heuristic=nullHeuristic):
+    # Use heap as frontier
+    frontier = util.PriorityQueue()
+    # Create explored set
+    explored = dict() # node to value => store min value to explore this node
+    startState: GameState = problem.getStartState()
+
+    # Node use as state, actions, cost
+    startNode = (startState, [], 0)
+    frontier.push(startNode, 0)
+    while not frontier.isEmpty():
+        currentState, actions, currentCost = frontier.pop()
+        explored[currentState] = currentCost
+        if problem.isGoalState(currentState):
+            return actions
+        else:
+            for successorState, successorAction, successorCost in problem.getSuccessors(currentState):
+                newActions = actions + [successorAction]
+                g_cost = currentCost + successorCost
+                h_cost = heuristic(successorState, problem)
+                f_cost = g_cost + h_cost
+                childNode = (successorState, newActions, g_cost)
+
+                # If not explore or current node better cost than previous explore
+                if (successorState not in explored) or (g_cost < explored[successorState]):
+                    frontier.push(childNode , f_cost)
 
 
 
 
-# def closestDotSearch(problem:  SearchProblem):
-#     """
-#     problem - PositionSearchProblem that implement SearchProblem
-#     """
-
-#     problem.
-#     frontier = util.Queue()
-#     explored = set()
-#     startState = problem.getStartState()
-#     startNode = (startState, [], 0)
-#     frontier.push(startNode)
-#     while not frontier.isEmpty():
-#         currentState, actions, currentCost = frontier.pop()
-#         if problem.isGoalState(currentState):
-#             return actions
-
-#         # Explore
-
-#         if currentState not in explored:
-#             explored.add(currentState)
-#             for (newState, newAction, preCost) in problem.getSuccessors(currentState):
-#                 child_node = (newState, actions + [newAction], preCost + 1)
-#                 frontier.push(child_node)
-#     return [Directions.SOUTH]
+astar = aStarSearch
+bfs = breadthFirstSearch
+dfs = depthFirstSearch
