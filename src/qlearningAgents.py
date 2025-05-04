@@ -1,170 +1,184 @@
-from pacman import Directions
-from game import Agent
-import random
-import math
-import game
-import util
-
-# QLearnAgent
+# qlearningAgents.py
+# ------------------
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
 #
-class QLearnAgent(Agent):
-
-    # Constructor, called when we start running the
-    def __init__(self, alpha=0.2, epsilon=0.05, gamma=0.8, numTraining = 10):
-        # alpha       - learning rate
-        # epsilon     - exploration rate
-        # gamma       - discount factor
-        # numTraining - number of training episodes
-        #
-        # These values are either passed from the command line or are
-        # set to the default values above. We need to create and set
-        # variables for them
-        self.alpha = float(alpha)
-        self.epsilon = float(epsilon)
-        self.gamma = float(gamma)
-        self.numTraining = int(numTraining)
-        # Count the number of games we have played
-        self.episodesSoFar = 0
-        # Q-values
-        self.q_value = util.Counter()
-        # current score
-        self.score = 0
-        # last state
-        self.lastState = []
-        # last action
-        self.lastAction = []
+# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
+# The core projects and autograders were primarily created by John DeNero
+# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
+# Student side autograding was added by Brad Miller, Nick Hay, and
+# Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
+from game import *
+from learningAgents import ReinforcementAgent
+from featureExtractors import *
+from backend import ReplayMemory
 
-    # Accessor functions for the variable episodesSoFars controlling learning
-    def incrementEpisodesSoFar(self):
-        self.episodesSoFar +=1
+import backend
+import gridworld
 
-    def getEpisodesSoFar(self):
-        return self.episodesSoFar
 
-    def getNumTraining(self):
-            return self.numTraining
+import random,util,math
+import numpy as np
+import copy
 
-    # Accessor functions for parameters
-    def setEpsilon(self, value):
-        self.epsilon = value
+class QLearningAgent(ReinforcementAgent):
+    """
+      Q-Learning Agent
+      Functions you should fill in:
+        - computeValueFromQValues
+        - computeActionFromQValues
+        - getQValue
+        - getAction
+        - update
+      Instance variables you have access to
+        - self.epsilon (exploration prob)
+        - self.alpha (learning rate)
+        - self.discount (discount rate)
+      Functions you should use
+        - self.getLegalActions(state)
+          which returns legal actions for a state
+    """
+    def __init__(self, **args):
+        "You can initialize Q-values here..."
+        ReinforcementAgent.__init__(self, **args)
 
-    def getAlpha(self):
-        return self.alpha
+        "*** YOUR CODE HERE ***"
 
-    def setAlpha(self, value):
-        self.alpha = value
-
-    def getGamma(self):
-        return self.gamma
-
-    def getMaxAttempts(self):
-        return self.maxAttempts
-
-    # functions for calculation
-    # get Q(s,a)
     def getQValue(self, state, action):
-        return self.q_value[(state,action)]
+        """
+          Returns Q(state,action)
+          Should return 0.0 if we have never seen a state
+          or the Q node value otherwise
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
 
-    # return the maximum Q of state
-    def getMaxQ(self, state):
-        q_list = []
-        for a in state.getLegalPacmanActions():
-            q = self.getQValue(state,a)
-            q_list.append(q)
-        if len(q_list) ==0:
-            return 0
-        return max(q_list)
+    def computeValueFromQValues(self, state):
+        """
+          Returns max_action Q(state,action)
+          where the max is over legal actions.  Note that if
+          there are no legal actions, which is the case at the
+          terminal state, you should return a value of 0.0.
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
 
-    # update Q value
-    def updateQ(self, state, action, reward, qmax):
-        q = self.getQValue(state,action)
-        self.q_value[(state,action)] = q + self.alpha*(reward + self.gamma*qmax - q)
+    def computeActionFromQValues(self, state):
+        """
+          Compute the best action to take in a state.  Note that if there
+          are no legal actions, which is the case at the terminal state,
+          you should return None.
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
 
-    # return the action maximises Q of state
-    def doTheRightThing(self, state):
-        legal = state.getLegalPacmanActions()
-        # in the first half of trianing, the agent is forced not to stop
-        # or turn back while not being chased by the ghost
-        if self.getEpisodesSoFar()*1.0/self.getNumTraining()<0.5:
-            if Directions.STOP in legal:
-                legal.remove(Directions.STOP)
-            if len(self.lastAction) > 0:
-                last_action = self.lastAction[-1]
-                distance0 = state.getPacmanPosition()[0]- state.getGhostPosition(1)[0]
-                distance1 = state.getPacmanPosition()[1]- state.getGhostPosition(1)[1]
-                if math.sqrt(distance0**2 + distance1**2) > 2:
-                    if (Directions.REVERSE[last_action] in legal) and len(legal)>1:
-                        legal.remove(Directions.REVERSE[last_action])
-        tmp = util.Counter()
-        for action in legal:
-          tmp[action] = self.getQValue(state, action)
-        return tmp.argMax()
-
-    # getAction
-    #
-    # The main method required by the game. Called every time that
-    # Pacman is expected to move
     def getAction(self, state):
-
-        # The data we have about the state of the game
-        # the legal action of this state
-        legal = state.getLegalPacmanActions()
-        if Directions.STOP in legal:
-            legal.remove(Directions.STOP)
-
-        # update Q-value
-        reward = state.getScore()-self.score
-        if len(self.lastState) > 0:
-            last_state = self.lastState[-1]
-            last_action = self.lastAction[-1]
-            max_q = self.getMaxQ(state)
-            self.updateQ(last_state, last_action, reward, max_q)
-
-        # e-greedy
-        if util.flipCoin(self.epsilon):
-            action =  random.choice(legal)
-        else:
-            action =  self.doTheRightThing(state)
-
-        # update attributes
-        self.score = state.getScore()
-        self.lastState.append(state)
-        self.lastAction.append(action)
+        """
+          Compute the action to take in the current state.  With
+          probability self.epsilon, we should take a random action and
+          take the best policy action otherwise.  Note that if there are
+          no legal actions, which is the case at the terminal state, you
+          should choose None as the action.
+          HINT: You might want to use util.flipCoin(prob)
+          HINT: To pick randomly from a list, use random.choice(list)
+        """
+        # Pick Action
+        legalActions = self.getLegalActions(state)
+        action = None
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
 
         return action
 
-    # Handle the end of episodes
-    #
-    # This is called by the game after a win or a loss.
+    def update(self, state, action, nextState, reward: float):
+        """
+          The parent class calls this to observe a
+          state = action => nextState and reward transition.
+          You should do your Q-Value update here
+          NOTE: You should never call this function,
+          it will be called on your behalf
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
+
+    def getPolicy(self, state):
+        return self.computeActionFromQValues(state)
+
+    def getValue(self, state):
+        return self.computeValueFromQValues(state)
+
+
+class PacmanQAgent(QLearningAgent):
+    "Exactly the same as QLearningAgent, but with different default parameters"
+
+    def __init__(self, epsilon=0.05,gamma=0.8,alpha=0.2, numTraining=0, **args):
+        """
+        These default parameters can be changed from the pacman.py command line.
+        For example, to change the exploration rate, try:
+            python pacman.py -p PacmanQLearningAgent -a epsilon=0.1
+        alpha    - learning rate
+        epsilon  - exploration rate
+        gamma    - discount factor
+        numTraining - number of training episodes, i.e. no learning after these many episodes
+        """
+        args['epsilon'] = epsilon
+        args['gamma'] = gamma
+        args['alpha'] = alpha
+        args['numTraining'] = numTraining
+        self.index = 0  # This is always Pacman
+        QLearningAgent.__init__(self, **args)
+
+    def getAction(self, state):
+        """
+        Simply calls the getAction method of QLearningAgent and then
+        informs parent of action for Pacman.  Do not change or remove this
+        method.
+        """
+        action = QLearningAgent.getAction(self,state)
+        self.doAction(state,action)
+        return action
+
+class ApproximateQAgent(PacmanQAgent):
+    """
+       ApproximateQLearningAgent
+       You should only have to overwrite getQValue
+       and update.  All other QLearningAgent functions
+       should work as is.
+    """
+    def __init__(self, extractor='IdentityExtractor', **args):
+        self.featExtractor = util.lookup(extractor, globals())()
+        PacmanQAgent.__init__(self, **args)
+        self.weights = util.Counter()
+
+    def getWeights(self):
+        return self.weights
+
+    def getQValue(self, state, action):
+        """
+          Should return Q(state,action) = w * featureVector
+          where * is the dotProduct operator
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
+
+    def update(self, state, action, nextState, reward: float):
+        """
+           Should update your weights based on transition
+        """
+        "*** YOUR CODE HERE ***"
+        util.raiseNotDefined()
+
     def final(self, state):
+        """Called at the end of each game."""
+        # call the super-class final method
+        PacmanQAgent.final(self, state)
 
-        # update Q-values
-        reward = state.getScore()-self.score
-        last_state = self.lastState[-1]
-        last_action = self.lastAction[-1]
-        self.updateQ(last_state, last_action, reward, 0)
-
-        # reset attributes
-        self.score = 0
-        self.lastState = []
-        self.lastAction = []
-
-        # decrease epsilon during the trianing
-        ep = 1 - self.getEpisodesSoFar()*1.0/self.getNumTraining()
-        self.setEpsilon(ep*0.1)
-
-
-        # Keep track of the number of games played, and set learning
-        # parameters to zero when we are done with the pre-set number
-        # of training episodes
-        self.incrementEpisodesSoFar()
-        if self.getEpisodesSoFar() % 100 == 0:
-            print ("Completed %s runs of training" % self.getEpisodesSoFar())
-
-        if self.getEpisodesSoFar() == self.getNumTraining():
-            msg = 'Training Done (turning off epsilon and alpha)'
-            print ('%s\n%s' % (msg,'-' * len(msg)))
-            self.setAlpha(0)
-            self.setEpsilon(0)
+        # did we finish training?
+        if self.episodesSoFar == self.numTraining:
+            # you might want to print your weights here for debugging
+            "*** YOUR CODE HERE ***"
+            pass
