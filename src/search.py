@@ -1,4 +1,3 @@
-
 # search.py
 # ---------
 # Licensing Information:  You are free to use or extend these projects for
@@ -12,19 +11,15 @@
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
-#####################################################
-#####################################################
-# Please enter the number of hours you spent on this
-# assignment here
 
+"""
+In search.py, you will implement generic search algorithms which are called by
+Pacman agents (in searchAgents.py).
+"""
 
-
-from typing import List
-from game import Directions
-from pacman import GameState
-import searchAgents
 import util
-
+from game import Directions
+from typing import List
 
 class SearchProblem:
     """
@@ -36,49 +31,65 @@ class SearchProblem:
 
     def getStartState(self):
         """
-        Returns the start state for the search problem
+        Returns the start state for the search problem.
         """
         util.raiseNotDefined()
 
     def isGoalState(self, state):
         """
-        Return true if and only if the state is a valid goal state.
+          state: Search state
+
+        Returns True if and only if the state is a valid goal state.
         """
         util.raiseNotDefined()
 
-    def getSuccessors(self, state) -> List:
+    def getSuccessors(self, state):
         """
-        For a givent state, this should return a list of triples, (successor,
-        action, stepCost), where the successor to the current state,
-        'action' is the action required to get there,
-        and 'stepCost' is the incremental cost of expanding to that successor.
+          state: Search state
+
+        For a given state, this should return a list of triples, (successor,
+        action, stepCost), where 'successor' is a successor to the current
+        state, 'action' is the action required to get there, and 'stepCost' is
+        the incremental cost of expanding to that successor.
         """
         util.raiseNotDefined()
-    def getCostOfActions(self, actions) -> int:
+
+    def getCostOfActions(self, actions):
         """
-        Return total cost to particular sequence of actions.
+         actions: A list of actions to take
+
+        This method returns the total cost of a particular sequence of actions.
         The sequence must be composed of legal moves.
         """
         util.raiseNotDefined()
-        return 0
 
-def tinyMazeSearch(problem):
+
+
+
+def tinyMazeSearch(problem: SearchProblem) -> List[Directions]:
     """
-    Return a sequence of moves that solves tinyMaze. For any other maze, the sequence
-    of moves will be incorrect, so only use this for tinyMaze.
+    Returns a sequence of moves that solves tinyMaze.  For any other maze, the
+    sequence of moves will be incorrect, so only use this for tinyMaze.
     """
-    from game import Directions
     s = Directions.SOUTH
     w = Directions.WEST
-    return [s, s, w, s, w, w, s, w]
+    return  [s, s, w, s, w, w, s, w]
 
-
-
-def depthFirstSearch(problem):
+def depthFirstSearch(problem: SearchProblem) -> List[Directions]:
     """
-    problem - PositionSearchProblem that implement SearchProblem
-    """
+    Search the deepest nodes in the search tree first.
 
+    Your search algorithm needs to return a list of actions that reaches the
+    goal. Make sure to implement a graph search algorithm.
+
+    To get started, you might want to try some of these simple commands to
+    understand the search problem that is being passed in:
+
+    print("Start:", problem.getStartState())
+    print("Is the start a goal?", problem.isGoalState(problem.getStartState()))
+    print("Start's successors:", problem.getSuccessors(problem.getStartState()))
+    """
+    "*** YOUR CODE HERE ***"
     frontier = util.Stack()
     explored = set()
     startState = problem.getStartState()
@@ -98,13 +109,9 @@ def depthFirstSearch(problem):
                 frontier.push(child_node)
     return []
 
-
-
-def breadthFirstSearch(problem):
-    """
-    problem - PositionSearchProblem that implement SearchProblem
-    """
-
+def breadthFirstSearch(problem: SearchProblem) -> List[Directions]:
+    """Search the shallowest nodes in the search tree first."""
+    "*** YOUR CODE HERE ***"
     frontier = util.Queue()
     explored = set()
     startState = problem.getStartState()
@@ -124,40 +131,59 @@ def breadthFirstSearch(problem):
                 frontier.push(child_node)
     return []
 
+def uniformCostSearch(problem: SearchProblem) -> List[Directions]:
+    """Search the node of least total cost first."""
+    "*** YOUR CODE HERE ***"
+    util.raiseNotDefined()
 
-def nullHeuristic(state, problem = None):
+def nullHeuristic(state, problem=None) -> float:
+    """
+    A heuristic function estimates the cost from the current state to the nearest
+    goal in the provided SearchProblem.  This heuristic is trivial.
+    """
     return 0
 
-def aStarSearch(problem, heuristic=nullHeuristic):
-    # Use heap as frontier
+def aStarSearch(problem: SearchProblem, heuristic=nullHeuristic) -> List[Directions]:
+    # Create frontier
     frontier = util.PriorityQueue()
-    # Create explored set
-    explored = dict() # node to value => store min value to explore this node
-    startState: GameState = problem.getStartState()
+    explored_to_min_cost = dict()
+    # Storage explored node to keep track minium value
+    start_state = problem.getStartState()
+    start_actions = []
+    start_cost = 0
 
-    # Node use as state, actions, cost
-    startNode = (startState, [], 0)
-    frontier.push(startNode, 0)
+    # Add stater node to frontier
+    start_node = (start_state, start_actions, start_cost)
+    frontier.push(start_node, start_cost)
+
+    # Graph search until open list is empty
     while not frontier.isEmpty():
-        currentState, actions, currentCost = frontier.pop()
-        explored[currentState] = currentCost
-        if problem.isGoalState(currentState):
-            return actions
-        else:
-            for successorState, successorAction, successorCost in problem.getSuccessors(currentState):
-                newActions = actions + [successorAction]
-                g_cost = currentCost + successorCost
-                h_cost = heuristic(successorState, problem)
-                f_cost = g_cost + h_cost
-                childNode = (successorState, newActions, g_cost)
+        cur_state, cur_actions, cur_cost = frontier.pop()
 
-                # If not explore or current node better cost than previous explore
-                if (successorState not in explored) or (g_cost < explored[successorState]):
-                    frontier.push(childNode , f_cost)
+        # Check if current node is goal => return actions
+        if problem.isGoalState(cur_state):
+            return cur_actions
 
+        # Check if node is not explore or better cost
+        if cur_state not in explored_to_min_cost or explored_to_min_cost[cur_state] > cur_cost:
+            # Mark node as explored and update the better cost (if already exist)
+            explored_to_min_cost[cur_state] = cur_cost
+            # Expand node nearby
+            for succ_state, action , succ_cost in problem.getSuccessors(cur_state):
 
+                succ_actions = cur_actions + [action]
+                g_cost = cur_cost + succ_cost
+                h_cost = g_cost + heuristic(succ_state, problem)
 
+                # NOTE: node information should contain about g_cost to track current cost without heuristic
+                succ_node = (succ_state, succ_actions, g_cost)
+                # Use h_cost for heapq priority
+                frontier.push(succ_node, h_cost)
 
-astar = aStarSearch
+    return []
+
+# Abbreviations
 bfs = breadthFirstSearch
 dfs = depthFirstSearch
+astar = aStarSearch
+ucs = uniformCostSearch
