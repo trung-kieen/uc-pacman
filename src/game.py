@@ -95,18 +95,7 @@ class Configuration:
         x, y = self.pos
         return x == int(x) and y == int(y)
 
-    def __eq__(self, other):
-        if other == None:
-            return False
-        return (self.pos == other.pos and self.direction == other.direction)
 
-    def __hash__(self):
-        x = hash(self.pos)
-        y = hash(self.direction)
-        return hash(x + 13 * y)
-
-    def __str__(self):
-        return "(x,y)="+str(self.pos)+", "+str(self.direction)
 
     def generateSuccessor(self, vector):
         """
@@ -123,6 +112,20 @@ class Configuration:
             direction = self.direction  # There is no stop direction
         return Configuration((x + dx, y+dy), direction)
 
+    def __eq__(self, other):
+        if other == None:
+            return False
+        return (self.pos == other.pos and self.direction == other.direction)
+
+    def __hash__(self):
+        x = hash(self.pos)
+        y = hash(self.direction)
+        return hash(x + 13 * y)
+
+    def __str__(self):
+        return "(x,y)="+str(self.pos)+", "+str(self.direction)
+
+
 
 class AgentState:
     """
@@ -138,6 +141,14 @@ class AgentState:
         self.numCarrying = 0
         self.numReturned = 0
 
+
+    def getPosition(self):
+        if self.configuration == None:
+            return None
+        return self.configuration.getPosition()
+
+    def getDirection(self):
+        return self.configuration.getDirection()
     def __str__(self):
         if self.isPacman:
             return "Pacman: " + str(self.configuration)
@@ -159,14 +170,6 @@ class AgentState:
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
         return state
-
-    def getPosition(self):
-        if self.configuration == None:
-            return None
-        return self.configuration.getPosition()
-
-    def getDirection(self):
-        return self.configuration.getDirection()
 
 
 class Grid:
