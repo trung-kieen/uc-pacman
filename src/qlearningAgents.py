@@ -1,3 +1,7 @@
+# Modify by: Kien, Duong
+# Licensing following UC Berkele
+
+
 from game import *
 from learningAgents import ReinforcementAgent
 from featureExtractors import *
