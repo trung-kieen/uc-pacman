@@ -333,8 +333,6 @@ class CornersProblem(search.SearchProblem):
             if self.walls[x][y]: return 999999
         return len(actions)
 
-
-
 def cornersHeuristic(state: Any, problem: CornersProblem):
     """
     A heuristic for the CornersProblem that you defined.
@@ -353,8 +351,6 @@ def cornersHeuristic(state: Any, problem: CornersProblem):
 
     "*** YOUR CODE HERE ***"
     return 0 # Default to trivial solution
-
-
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
@@ -418,32 +414,184 @@ class AStarFoodSearchAgent(SearchAgent):
         self.searchFunction = lambda prob: search.aStarSearch(prob, foodHeuristic)
         self.searchType = FoodSearchProblem
 
-def foodHeuristic(state: Tuple[Tuple, List[List]], problem: FoodSearchProblem):
+class MSTCalculator:
+    """Class to calculate Minimum Spanning Tree weight using Kruskal's algorithm with Union-Find."""
+    
+    def __init__(self):
+        self.parent = []
+        self.rank = []
+    
+    def find(self, parent: list[int], u: int) -> int:
+        """Tìm gốc của tập hợp chứa u với nén đường (path compression)."""
+        if parent[u] != u:
+            parent[u] = self.find(parent, parent[u])
+        return parent[u]
+    
+    def union(self, parent: list[int], rank: list[int], u: int, v: int):
+        """Hợp nhất hai tập hợp chứa u và v, sử dụng union by rank."""
+        pu = self.find(parent, u)
+        pv = self.find(parent, v)
+        
+        if pu == pv:
+            return
+        
+        if rank[pu] < rank[pv]:
+            parent[pu] = pv
+        elif rank[pu] > rank[pv]:
+            parent[pv] = pu
+        else:
+            parent[pv] = pu
+            rank[pu] += 1
+    
+    def calculate_mst_weight(self, nodes: list[tuple[int, int]], distance_func, cache: dict) -> float:
+        """
+        Tính trọng số MST của danh sách các node sử dụng hàm khoảng cách cho trước.
+        
+        Args:
+            nodes: Danh sách các node (tọa độ).
+            distance_func: Hàm tính khoảng cách giữa hai node.
+            cache: Từ điển lưu trữ khoảng cách để tái sử dụng.
+        
+        Returns:
+            Trọng số MST.
+        """
+        if len(nodes) <= 1:
+            return 0
+        
+        # Tạo danh sách cạnh
+        edges = []
+        for i, node1 in enumerate(nodes):
+            for j, node2 in enumerate(nodes[i+1:], i+1):
+                key = tuple(sorted([node1, node2]))
+                if key not in cache:
+                    cache[key] = distance_func(node1, node2)
+                dist = cache[key]
+                edges.append((dist, i, j))
+        
+        # Sắp xếp cạnh theo khoảng cách
+        edges.sort()
+        
+        # Khởi tạo Union-Find
+        self.parent = list(range(len(nodes)))
+        self.rank = [0] * len(nodes)
+        mst_weight = 0
+        
+        # Xây dựng MST
+        for dist, u, v in edges:
+            if self.find(self.parent, u) != self.find(self.parent, v):
+                self.union(self.parent, self.rank, u, v)
+                mst_weight += dist
+        
+        return mst_weight
+    
+def findClosestPoint(location, goalArray):
+    closestPoint = 0
+    closestPointCost = util.manhattanDistance( location, goalArray[0] )
+    
+    for j in range(len(goalArray)):
+        #calculate distance between current state to corner
+        cornerLocation = goalArray[j]
+        lengthToCorner = util.manhattanDistance( location, cornerLocation )
+        
+        if lengthToCorner < closestPointCost:
+            closestPoint = j
+            closestPointCost = lengthToCorner
+
+    return (closestPoint, closestPointCost)
+
+def findFarthestPoint(location, goalArray):
+    farthestPoint = 0
+    farthestPointCost = util.manhattanDistance( location, goalArray[0] )
+    
+    for j in range(len(goalArray)):
+        #calculate distance between current state to corner
+        cornerLocation = goalArray[j]
+        lengthToCorner = util.manhattanDistance( location, cornerLocation )
+        
+        if lengthToCorner > farthestPointCost:
+            farthestPoint = j
+            farthestPointCost = lengthToCorner
+
+    return (farthestPoint, farthestPointCost)
+
+def foodHeuristic(state: Tuple[Tuple[int, int], List[List[bool]]], problem: 'FoodSearchProblem') -> float:
     """
-    Your heuristic for the FoodSearchProblem goes here.
-
-    If using A* ever finds a solution that is worse uniform cost search finds,
-    your search may have a but our your heuristic is not admissible!  On the
-    other hand, inadmissible heuristics may find optimal solutions, so be careful.
-
-    The state is a tuple ( pacmanPosition, foodGrid ) where foodGrid is a Grid
-    (see game.py) of either True or False. You can call foodGrid.asList() to get
-    a list of food coordinates instead.
-
-    If you want access to info like walls, capsules, etc., you can query the
-    problem.  For example, problem.walls gives you a Grid of where the walls
-    are.
-
-    If you want to *store* information to be reused in other calls to the
-    heuristic, there is a dictionary called problem.heuristicInfo that you can
-    use. For example, if you only want to count the walls once and store that
-    value, try: problem.heuristicInfo['wallCount'] = problem.walls.count()
-    Subsequent calls to this heuristic can access
-    problem.heuristicInfo['wallCount']
+    Hàm heuristic cho FoodSearchProblem, sử dụng MST và khoảng cách đến viên thức ăn gần nhất.
+    
+    Args:
+        state: Tuple chứa (position, foodGrid), position là tọa độ Pacman, foodGrid là lưới thức ăn.
+        problem: Đối tượng FoodSearchProblem, chứa startingGameState và heuristicInfo.
+    
+    Returns:
+        Giá trị heuristic.
     """
     position, foodGrid = state
-    "*** YOUR CODE HERE ***"
-    return 0
+    foodList = foodGrid.asList()
+    
+    if len(foodList) == 0:
+        return 0
+    
+    # Tìm viên thức ăn gần nhất
+    closest_distance = float('inf')
+    for food in foodList:
+        key = (position, food)
+        if key not in problem.heuristicInfo:
+            problem.heuristicInfo[key] = mazeDistance(position, food, problem.startingGameState)
+        dist = problem.heuristicInfo[key]
+        closest_distance = min(closest_distance, dist)
+    
+    # Tính MST bằng MSTCalculator
+    mst_calculator = MSTCalculator()
+    mst_weight = mst_calculator.calculate_mst_weight(
+        nodes=foodList,
+        distance_func=lambda x, y: mazeDistance(x, y, problem.startingGameState),
+        cache=problem.heuristicInfo
+    )
+    
+    # Giá trị heuristic là tổng khoảng cách gần nhất và trọng số MST
+    heuristic = closest_distance + mst_weight
+    return heuristic
+
+def closestToFartherHeuristic(state, problem):
+    """Encourage Pacman to eat all the pellets as fast as possible."""
+    position, foodGrid = state
+    heuristic = 0
+    foodList = foodGrid.asList()
+    
+    # Khởi tạo heuristicInfo nếu chưa có
+    if not hasattr(problem, 'heuristicInfo'):
+        problem.heuristicInfo = {}
+    
+    #calculate the distance from current node to food-containing nodes
+    if len(foodList) > 0:
+        closestPoint = findClosestPoint(position, foodList)
+        farthestPoint = findFarthestPoint(position, foodList)
+        
+        closestPointIndex = closestPoint[0]
+        farthestPointIndex = farthestPoint[0]
+        
+        currentNode = problem.startingGameState
+        closestFoodNode = foodList[closestPointIndex]
+        farthestFoodNode = foodList[farthestPointIndex]
+        
+        key1 = (position,closestFoodNode)
+        if key1 not in problem.heuristicInfo:
+            problem.heuristicInfo[key1] =  mazeDistance(position, closestFoodNode, currentNode)
+        currentToClosest = problem.heuristicInfo[key1]
+
+        key2 = (position,farthestFoodNode)
+        if key2 not in problem.heuristicInfo:
+            problem.heuristicInfo[key2] =  mazeDistance(position, farthestFoodNode, currentNode)
+        currentToFarthest = problem.heuristicInfo[key2]
+        
+        # #distance between current location and closest manhattan node
+        # currentToClosest = mazeDistance(position, closestFoodNode, currentNode)
+        
+        # #distance between closest manhattan node and farthest manhattan node
+        # closestToFarthest = mazeDistance(closestFoodNode, farthestFoodNode, currentNode)
+
+        heuristic = currentToClosest + currentToFarthest
+    return heuristic
 
 
 class ClosestDotSearchAgent(SearchAgent):
