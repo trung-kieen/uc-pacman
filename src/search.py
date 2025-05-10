@@ -10,7 +10,7 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
+    
 
 """
 In search.py, you will implement generic search algorithms which are called by
@@ -140,13 +140,13 @@ def nullHeuristic(state, problem=None) -> float:
     """
     A heuristic function estimates the cost from the current state to the nearest
     goal in the provided SearchProblem.  This heuristic is trivial.
-    """
+    """  
     return 0
 
 def aStarSearch(problem: SearchProblem, heuristic=nullHeuristic) -> List[Directions]:
     # Create frontier
     frontier = util.PriorityQueue()
-    explored_to_min_cost = dict()
+    explored_to_min_cost = dict() # this dict will store the minimum cost reached of each state that has been explored
     # Storage explored node to keep track minium value
     start_state = problem.getStartState()
     start_actions = []
@@ -163,6 +163,7 @@ def aStarSearch(problem: SearchProblem, heuristic=nullHeuristic) -> List[Directi
         # Check if current node is goal => return actions
         if problem.isGoalState(cur_state):
             return cur_actions
+        
 
         # Check if node is not explore or better cost
         if cur_state not in explored_to_min_cost or explored_to_min_cost[cur_state] > cur_cost:
@@ -181,6 +182,74 @@ def aStarSearch(problem: SearchProblem, heuristic=nullHeuristic) -> List[Directi
                 frontier.push(succ_node, h_cost)
 
     return []
+
+def trackAStarSearch(problem: SearchProblem, heuristic=nullHeuristic) -> List[Directions]:
+    import util
+
+    # Create frontier
+    frontier = util.PriorityQueue()
+    explored_to_min_cost = dict()
+
+    # Storage explored node to keep track minium value
+    start_state = problem.getStartState()
+    start_actions = []
+    start_cost = 0
+
+    # Add starter node to frontier
+    start_node = (start_state, start_actions, start_cost)
+    frontier.push(start_node, start_cost)
+
+    step = 0  # để theo dõi vòng lặp
+
+    # Graph search until frontier is empty
+    while not frontier.isEmpty():
+        cur_state, cur_actions, cur_cost = frontier.pop()
+        
+        print(f"Expanded node: {cur_state}")
+
+        print(f"\n--- Step {step} ---")
+        print(f"Pop node: {cur_state}, g(n) = {cur_cost}, path = {cur_actions}")
+
+        # Check if current node is goal => return actions
+        if problem.isGoalState(cur_state):
+            print("Reached goal!")
+            return cur_actions
+        print("HAVE NOT REACHED GOAL! ")
+        # Check if node is not explored or has a better cost
+        if cur_state not in explored_to_min_cost or explored_to_min_cost[cur_state] > cur_cost:
+            # Mark node as explored
+            explored_to_min_cost[cur_state] = cur_cost
+
+            # Expand node
+            for succ_state, action, succ_cost in problem.getSuccessors(cur_state):
+                succ_actions = cur_actions + [action]
+                g_cost = cur_cost + succ_cost
+                h_cost = heuristic(succ_state, problem)
+                f_cost = g_cost + h_cost
+
+                succ_node = (succ_state, succ_actions, g_cost)
+
+                print(f"  Successor: {succ_state}, action: {action}, g(n): {g_cost}, h(n): {h_cost}, f(n): {f_cost}")
+
+                frontier.push(succ_node, f_cost)
+
+        # In toàn bộ các node đã explore
+        print("  Explored nodes so far:")
+        for state, cost in explored_to_min_cost.items():
+            print(f"    {state}, g(n): {cost}")
+            
+            
+        # In frontier sau mỗi vòng lặp
+        print("  Frontier:")
+        for item in frontier.heap:
+            state, actions, g_cost = item[2]  # item = (priority, count, (state, actions, g))
+            f_cost = item[0]
+            print(f"    {state}, f(n): {f_cost}, path: {actions}")
+
+        step += 1
+
+    return []
+
 
 # Abbreviations
 bfs = breadthFirstSearch
