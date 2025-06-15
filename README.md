@@ -9,6 +9,8 @@ Reinforcement learning:
 - Q-learning 
 - Approximate Q-learning 
 
+[Video walk through](https://youtu.be/XF2U5YGsuH0)
+
 # Setup 
 1. Navigate to `src` 
 2. Active env in linux environment 
